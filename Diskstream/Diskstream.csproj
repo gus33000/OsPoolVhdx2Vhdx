@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>Microsoft.Spaces.Diskstream</RootNamespace>
+    <Company>Microsoft Corporation</Company>
+    <Copyright>Copyright %28c%29 Microsoft Corporation. All rights reserved.</Copyright>
+    <FileVersion>10.0.10011.16384</FileVersion>
+    <Product>Microsoft %28R%29 Windows %28R%29 Operating System</Product>
+    <AssemblyVersion>10.0.0.0</AssemblyVersion>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="diskhandle.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="diskhandle.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>
