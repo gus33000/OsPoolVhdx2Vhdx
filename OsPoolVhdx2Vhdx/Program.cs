@@ -47,7 +47,7 @@ namespace OsPoolVhdx2Vhdx
 
                         long diskCapacity = space.Length;
                         using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
-                        using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, logicalSectorSize: space.BytesPerSector);;
+                        using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, space.BytesPerSector));
 
                         StreamPump pump = new()
                         {
