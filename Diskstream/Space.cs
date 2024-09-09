@@ -3,35 +3,29 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Spaces.Diskstream
 {
-	public class Space : Disk
-	{
-		protected Space(IntPtr handle) : base(handle)
-		{
-		}
+    public class Space : Disk
+    {
+        protected Space(IntPtr handle) : base(handle)
+        {
+        }
 
-		public string Name
-		{
-			get
-			{
-				return Marshal.PtrToStringUni(Space.SpaceHandleGetName(base.GetHandle()));
-			}
-		}
+        public string Name => Marshal.PtrToStringUni(Space.SpaceHandleGetName(base.GetHandle()));
 
-		internal static Space Open(IntPtr handle)
-		{
-			return new Space(handle);
-		}
+        internal static Space Open(IntPtr handle)
+        {
+            return new Space(handle);
+        }
 
-		protected override void Dispose(bool disposing)
-		{
-			bool isDisposed = base.IsDisposed;
-			if (!isDisposed)
-			{
-				base.IsDisposed = true;
-			}
-		}
+        protected override void Dispose(bool disposing)
+        {
+            bool isDisposed = base.IsDisposed;
+            if (!isDisposed)
+            {
+                base.IsDisposed = true;
+            }
+        }
 
-		[DllImport("diskhandle.dll")]
-		private static extern IntPtr SpaceHandleGetName(IntPtr spaceHandle);
-	}
+        [DllImport("diskhandle.dll")]
+        private static extern IntPtr SpaceHandleGetName(IntPtr spaceHandle);
+    }
 }

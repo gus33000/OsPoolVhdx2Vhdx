@@ -7,7 +7,7 @@ namespace OsPoolVhdx2Vhdx
 {
     internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
             if (args.Length != 2)
             {
@@ -37,48 +37,48 @@ namespace OsPoolVhdx2Vhdx
         {
             using Disk virtualDisk = Vhd.Open(vhdx, true, null);
 
-                try
+            try
+            {
+                using Pool pool = Pool.Open(virtualDisk);
+                foreach (Space space in pool.Spaces)
                 {
-                    using Pool pool = Pool.Open(virtualDisk);
-                    foreach (Space space in pool.Spaces)
+                    string vhdfile = Path.Combine(outputDirectory, $"{space.Name}.vhdx");
+                    Console.WriteLine($"Dumping {vhdfile}...");
+
+                    long diskCapacity = space.Length;
+                    using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
+                    using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, space.BytesPerSector));
+
+                    StreamPump pump = new()
                     {
-                        string vhdfile = Path.Combine(outputDirectory, $"{space.Name}.vhdx");
-                        Console.WriteLine($"Dumping {vhdfile}...");
+                        InputStream = space,
+                        OutputStream = outDisk.Content,
+                        SparseCopy = true,
+                        SparseChunkSize = space.BytesPerSector,
+                        BufferSize = space.BytesPerSector * 1024
+                    };
 
-                        long diskCapacity = space.Length;
-                        using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
-                        using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, space.BytesPerSector));
+                    long totalBytes = space.Length;
 
-                        StreamPump pump = new()
-                        {
-                            InputStream = space,
-                            OutputStream = outDisk.Content,
-                            SparseCopy = true,
-                            SparseChunkSize = space.BytesPerSector,
-                            BufferSize = space.BytesPerSector * 1024
-                        };
+                    DateTime now = DateTime.Now;
+                    pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
 
-                        long totalBytes = space.Length;
+                    Console.WriteLine("Dumping " + space.Name);
+                    pump.Run();
+                    Console.WriteLine();
 
-                        DateTime now = DateTime.Now;
-                        pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
-
-                        Console.WriteLine("Dumping " + space.Name);
-                        pump.Run();
-                        Console.WriteLine();
-
-                        space.Dispose();
-                    }
+                    space.Dispose();
                 }
-                catch (Win32Exception ex)
+            }
+            catch (Win32Exception ex)
+            {
+                if (ex.NativeErrorCode != 1168)
                 {
-                    if (ex.NativeErrorCode != 1168)
-                    {
-                        throw;
-                    }
-
-                    Console.WriteLine("VHDX file contains no recognized OSPool partition");
+                    throw;
                 }
+
+                Console.WriteLine("VHDX file contains no recognized OSPool partition");
+            }
         }
 
         protected static void ShowProgress(ulong readBytes, ulong totalBytes, DateTime startTime)
