@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\StorageSpace\StorageSpace.csproj" />
+    <ProjectReference Include="..\StorageSpace\StorageSpace\StorageSpace.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -5,7 +5,7 @@ VisualStudioVersion = 17.8.34004.107
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "OsPoolVhdx2Vhdx", "OsPoolVhdx2Vhdx\OsPoolVhdx2Vhdx.csproj", "{07D04613-513C-4F0E-A37C-B9FC10E93D15}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StorageSpace", "StorageSpace\StorageSpace.csproj", "{818236A3-BCEA-4E57-B64E-A5A4F6CAAC44}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StorageSpace", "StorageSpace\StorageSpace\StorageSpace.csproj", "{818236A3-BCEA-4E57-B64E-A5A4F6CAAC44}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
