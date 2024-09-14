@@ -149,7 +149,7 @@ namespace StorageSpace
 
             foreach (Volume SDBBVolume in SDBBVolumes)
             {
-                disks.Add(SDBBVolume.VolumeNumber, SDBBVolume.VolumeName);
+                disks.Add(SDBBVolume.VolumeNumber, string.IsNullOrEmpty(SDBBVolume.VolumeName) ? SDBBVolume.VolumeGUID.ToString() : SDBBVolume.VolumeName);
             }
 
             return disks;

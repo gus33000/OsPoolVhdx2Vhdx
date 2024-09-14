@@ -2,6 +2,7 @@
 using DiscUtils.Partitions;
 using DiscUtils.Streams;
 using StorageSpace;
+using System.Collections.Concurrent;
 
 namespace OsPoolVhdx2Vhdx
 {
@@ -46,22 +47,29 @@ namespace OsPoolVhdx2Vhdx
             }
 
             PartitionTable partitionTable = virtualDisk.Partitions;
-
+            
             if (partitionTable != null)
             {
                 foreach (PartitionInfo partitionInfo in partitionTable.Partitions)
                 {
                     if (partitionInfo.GuidType == new Guid("E75CAF8F-F680-4CEE-AFA3-B001E56EFC2D"))
                     {
+                        Console.WriteLine($"{((GuidPartitionInfo)partitionInfo).Name} {((GuidPartitionInfo)partitionInfo).Identity} {((GuidPartitionInfo)partitionInfo).GuidType} {((GuidPartitionInfo)partitionInfo).SectorCount * virtualDisk.SectorSize} StoragePool");
+
                         Stream storageSpacePartitionStream = partitionInfo.Open();
 
                         StorageSpace.StorageSpace storageSpace = new(storageSpacePartitionStream);
 
                         Dictionary<int, string> disks = storageSpace.GetDisks();
 
+                        foreach (KeyValuePair<int, string> disk in disks.OrderBy(x => x.Key))
+                        {
+                            Console.WriteLine($"- {disk.Key}: {disk.Value} StorageSpace");
+                        }
+                        
                         foreach (KeyValuePair<int, string> disk in disks)
                         {
-                            Space space = storageSpace.OpenDisk(disk.Key);
+                            using Space space = storageSpace.OpenDisk(disk.Key);
 
                             string vhdfile = Path.Combine(outputDirectory, $"{disk.Value}.vhdx");
                             Console.WriteLine($"Dumping {vhdfile}...");
