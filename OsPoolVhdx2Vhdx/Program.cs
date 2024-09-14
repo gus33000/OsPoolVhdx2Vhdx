@@ -12,7 +12,7 @@ namespace OsPoolVhdx2Vhdx
         {
             if (args.Length != 2)
             {
-                Console.WriteLine("Usage: OsPoolVhdx2Vhdx <Path to FFU File> <Output director for SPACEDisk.vhdx files>");
+                Console.WriteLine("Usage: OsPoolVhdx2Vhdx <Path to VHD(X) File with Storage Pool> <Output director for SPACEDisk.vhdx files>");
                 return;
             }
 
@@ -21,7 +21,7 @@ namespace OsPoolVhdx2Vhdx
 
             if (!File.Exists(VhdxPath))
             {
-                Console.WriteLine($"VHDX file does not exist: {VhdxPath}");
+                Console.WriteLine($"VHD(X) file does not exist: {VhdxPath}");
                 return;
             }
 
