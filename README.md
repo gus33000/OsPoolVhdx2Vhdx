@@ -12,4 +12,4 @@ Storage Spaces is a technology used in some Windows Editions to store multiple d
 
 ## License
 
-This tool is currently not licensed for any use of any kind due to use of proprietary components.
+This tool is licensed under the MIT License.
