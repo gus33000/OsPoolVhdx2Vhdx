@@ -1,7 +1,7 @@
 ﻿using DiscUtils;
+using DiscUtils.Partitions;
 using DiscUtils.Streams;
-using Microsoft.Spaces.Diskstream;
-using System.ComponentModel;
+using StorageSpace;
 
 namespace OsPoolVhdx2Vhdx
 {
@@ -35,49 +35,63 @@ namespace OsPoolVhdx2Vhdx
 
         public static void DumpSpaces(string vhdx, string outputDirectory)
         {
-            using Disk virtualDisk = Vhd.Open(vhdx, true, null);
-
-            try
+            VirtualDisk virtualDisk;
+            if (vhdx.EndsWith(".vhd", StringComparison.InvariantCultureIgnoreCase))
             {
-                using Pool pool = Pool.Open(virtualDisk);
-                foreach (Space space in pool.Spaces)
-                {
-                    string vhdfile = Path.Combine(outputDirectory, $"{space.Name}.vhdx");
-                    Console.WriteLine($"Dumping {vhdfile}...");
-
-                    long diskCapacity = space.Length;
-                    using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
-                    using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, space.BytesPerSector));
-
-                    StreamPump pump = new()
-                    {
-                        InputStream = space,
-                        OutputStream = outDisk.Content,
-                        SparseCopy = true,
-                        SparseChunkSize = space.BytesPerSector,
-                        BufferSize = space.BytesPerSector * 1024
-                    };
-
-                    long totalBytes = space.Length;
-
-                    DateTime now = DateTime.Now;
-                    pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
-
-                    Console.WriteLine("Dumping " + space.Name);
-                    pump.Run();
-                    Console.WriteLine();
-
-                    space.Dispose();
-                }
+                virtualDisk = new DiscUtils.Vhd.Disk(vhdx, FileAccess.Read);
             }
-            catch (Win32Exception ex)
+            else
             {
-                if (ex.NativeErrorCode != 1168)
-                {
-                    throw;
-                }
+                virtualDisk = new DiscUtils.Vhdx.Disk(vhdx, FileAccess.Read);
+            }
 
-                Console.WriteLine("VHDX file contains no recognized OSPool partition");
+            PartitionTable partitionTable = virtualDisk.Partitions;
+
+            if (partitionTable != null)
+            {
+                foreach (PartitionInfo partitionInfo in partitionTable.Partitions)
+                {
+                    if (partitionInfo.GuidType == new Guid("E75CAF8F-F680-4CEE-AFA3-B001E56EFC2D"))
+                    {
+                        Stream storageSpacePartitionStream = partitionInfo.Open();
+
+                        StorageSpace.StorageSpace storageSpace = new(storageSpacePartitionStream);
+
+                        Dictionary<int, string> disks = storageSpace.GetDisks();
+
+                        foreach (KeyValuePair<int, string> disk in disks)
+                        {
+                            Space space = storageSpace.OpenDisk(disk.Key);
+
+                            string vhdfile = Path.Combine(outputDirectory, $"{disk.Value}.vhdx");
+                            Console.WriteLine($"Dumping {vhdfile}...");
+
+                            long diskCapacity = space.Length;
+                            using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
+                            using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, 4096));
+
+                            StreamPump pump = new()
+                            {
+                                InputStream = space,
+                                OutputStream = outDisk.Content,
+                                SparseCopy = true,
+                                SparseChunkSize = 4096,
+                                BufferSize = 4096 * 1024
+                            };
+
+                            long totalBytes = space.Length;
+
+                            DateTime now = DateTime.Now;
+                            pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
+
+                            Console.WriteLine("Dumping " + disk.Value);
+                            pump.Run();
+                            Console.WriteLine();
+
+                            space.Dispose();
+                        }
+                    }
+                }
             }
         }
 
