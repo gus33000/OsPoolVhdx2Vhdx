@@ -2,7 +2,6 @@
 using DiscUtils.Partitions;
 using DiscUtils.Streams;
 using StorageSpace;
-using System.Collections.Concurrent;
 
 namespace OsPoolVhdx2Vhdx
 {
@@ -58,7 +57,7 @@ namespace OsPoolVhdx2Vhdx
 
                         Stream storageSpacePartitionStream = partitionInfo.Open();
 
-                        StorageSpace.StorageSpace storageSpace = new(storageSpacePartitionStream);
+                        Pool storageSpace = new(storageSpacePartitionStream);
 
                         Dictionary<int, string> disks = storageSpace.GetDisks();
 
