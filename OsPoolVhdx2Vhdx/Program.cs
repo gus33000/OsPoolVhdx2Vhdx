@@ -70,20 +70,59 @@ namespace OsPoolVhdx2Vhdx
                         {
                             using Space space = storageSpace.OpenDisk(disk.Key);
 
+                            // Default is 4096
+                            int sectorSize = 4096;
+
+                            if (space.Length > 4096 * 2)
+                            {
+                                BinaryReader reader = new(space);
+
+                                space.Seek(512, SeekOrigin.Begin);
+                                byte[] header1 = reader.ReadBytes(8);
+
+                                space.Seek(4096, SeekOrigin.Begin);
+                                byte[] header2 = reader.ReadBytes(8);
+
+                                string header1str = System.Text.Encoding.ASCII.GetString(header1);
+                                string header2str = System.Text.Encoding.ASCII.GetString(header2);
+
+                                if (header1str == "EFI PART")
+                                {
+                                    sectorSize = 512;
+                                }
+                                else if (header2str == "EFI PART")
+                                {
+                                    sectorSize = 4096;
+                                }
+                                else if (space.Length % 512 == 0 && space.Length % 4096 != 0)
+                                {
+                                    sectorSize = 512;
+                                }
+
+                                space.Seek(0, SeekOrigin.Begin);
+                            }
+                            else
+                            {
+                                if (space.Length % 512 == 0 && space.Length % 4096 != 0)
+                                {
+                                    sectorSize = 512;
+                                }
+                            }
+
                             string vhdfile = Path.Combine(outputDirectory, $"{disk.Value}.vhdx");
                             Console.WriteLine($"Dumping {vhdfile}...");
 
                             long diskCapacity = space.Length;
                             using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
-                            using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, 4096));
+                            using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, sectorSize));
 
                             StreamPump pump = new()
                             {
                                 InputStream = space,
                                 OutputStream = outDisk.Content,
                                 SparseCopy = true,
-                                SparseChunkSize = 4096,
-                                BufferSize = 4096 * 1024
+                                SparseChunkSize = sectorSize,
+                                BufferSize = sectorSize * 1024
                             };
 
                             long totalBytes = space.Length;
