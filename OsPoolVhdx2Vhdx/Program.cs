@@ -1,7 +1,6 @@
 ﻿using DiscUtils;
-using DiscUtils.Partitions;
 using DiscUtils.Streams;
-using StorageSpace;
+using Microsoft.Spaces.Diskstream;
 
 namespace OsPoolVhdx2Vhdx
 {
@@ -35,109 +34,82 @@ namespace OsPoolVhdx2Vhdx
 
         public static void DumpSpaces(string vhdx, string outputDirectory)
         {
-            VirtualDisk virtualDisk;
-            if (vhdx.EndsWith(".vhd", StringComparison.InvariantCultureIgnoreCase))
+            using Disk virtualDisk = Vhd.Open(vhdx, true, null);
+
+            using Pool pool = Pool.Open(virtualDisk);
+
+            foreach (Space disk in pool.Spaces)
             {
-                virtualDisk = new DiscUtils.Vhd.Disk(vhdx, FileAccess.Read);
-            }
-            else
-            {
-                virtualDisk = new DiscUtils.Vhdx.Disk(vhdx, FileAccess.Read);
+                Console.WriteLine($"- {disk.Name}: {disk.Length} StorageSpace");
             }
 
-            PartitionTable partitionTable = virtualDisk.Partitions;
-            
-            if (partitionTable != null)
+            foreach (Space space in pool.Spaces)
             {
-                foreach (PartitionInfo partitionInfo in partitionTable.Partitions)
+                // Default is 4096
+                int sectorSize = 4096;
+
+                if (space.Length > 4096 * 2)
                 {
-                    if (partitionInfo.GuidType == new Guid("E75CAF8F-F680-4CEE-AFA3-B001E56EFC2D"))
+                    BinaryReader reader = new(space);
+
+                    space.Seek(512, SeekOrigin.Begin);
+                    byte[] header1 = reader.ReadBytes(8);
+
+                    space.Seek(4096, SeekOrigin.Begin);
+                    byte[] header2 = reader.ReadBytes(8);
+
+                    string header1str = System.Text.Encoding.ASCII.GetString(header1);
+                    string header2str = System.Text.Encoding.ASCII.GetString(header2);
+
+                    if (header1str == "EFI PART")
                     {
-                        Console.WriteLine($"{((GuidPartitionInfo)partitionInfo).Name} {((GuidPartitionInfo)partitionInfo).Identity} {((GuidPartitionInfo)partitionInfo).GuidType} {((GuidPartitionInfo)partitionInfo).SectorCount * virtualDisk.SectorSize} StoragePool");
+                        sectorSize = 512;
+                    }
+                    else if (header2str == "EFI PART")
+                    {
+                        sectorSize = 4096;
+                    }
+                    else if (space.Length % 512 == 0 && space.Length % 4096 != 0)
+                    {
+                        sectorSize = 512;
+                    }
 
-                        Stream storageSpacePartitionStream = partitionInfo.Open();
-
-                        Pool storageSpace = new(storageSpacePartitionStream);
-
-                        Dictionary<int, string> disks = storageSpace.GetDisks();
-
-                        foreach (KeyValuePair<int, string> disk in disks.OrderBy(x => x.Key))
-                        {
-                            Console.WriteLine($"- {disk.Key}: {disk.Value} StorageSpace");
-                        }
-                        
-                        foreach (KeyValuePair<int, string> disk in disks)
-                        {
-                            using Space space = storageSpace.OpenDisk(disk.Key);
-
-                            // Default is 4096
-                            int sectorSize = 4096;
-
-                            if (space.Length > 4096 * 2)
-                            {
-                                BinaryReader reader = new(space);
-
-                                space.Seek(512, SeekOrigin.Begin);
-                                byte[] header1 = reader.ReadBytes(8);
-
-                                space.Seek(4096, SeekOrigin.Begin);
-                                byte[] header2 = reader.ReadBytes(8);
-
-                                string header1str = System.Text.Encoding.ASCII.GetString(header1);
-                                string header2str = System.Text.Encoding.ASCII.GetString(header2);
-
-                                if (header1str == "EFI PART")
-                                {
-                                    sectorSize = 512;
-                                }
-                                else if (header2str == "EFI PART")
-                                {
-                                    sectorSize = 4096;
-                                }
-                                else if (space.Length % 512 == 0 && space.Length % 4096 != 0)
-                                {
-                                    sectorSize = 512;
-                                }
-
-                                space.Seek(0, SeekOrigin.Begin);
-                            }
-                            else
-                            {
-                                if (space.Length % 512 == 0 && space.Length % 4096 != 0)
-                                {
-                                    sectorSize = 512;
-                                }
-                            }
-
-                            string vhdfile = Path.Combine(outputDirectory, $"{disk.Value}.vhdx");
-                            Console.WriteLine($"Dumping {vhdfile}...");
-
-                            long diskCapacity = space.Length;
-                            using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
-                            using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, sectorSize));
-
-                            StreamPump pump = new()
-                            {
-                                InputStream = space,
-                                OutputStream = outDisk.Content,
-                                SparseCopy = true,
-                                SparseChunkSize = sectorSize,
-                                BufferSize = sectorSize * 1024
-                            };
-
-                            long totalBytes = space.Length;
-
-                            DateTime now = DateTime.Now;
-                            pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
-
-                            Console.WriteLine("Dumping " + disk.Value);
-                            pump.Run();
-                            Console.WriteLine();
-
-                            space.Dispose();
-                        }
+                    space.Seek(0, SeekOrigin.Begin);
+                }
+                else
+                {
+                    if (space.Length % 512 == 0 && space.Length % 4096 != 0)
+                    {
+                        sectorSize = 512;
                     }
                 }
+
+                string vhdfile = Path.Combine(outputDirectory, $"{space.Name}.vhdx");
+                Console.WriteLine($"Dumping {vhdfile}...");
+
+                long diskCapacity = space.Length;
+                using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
+                using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, sectorSize));
+
+                StreamPump pump = new()
+                {
+                    InputStream = space,
+                    OutputStream = outDisk.Content,
+                    SparseCopy = true,
+                    SparseChunkSize = sectorSize,
+                    BufferSize = sectorSize * 1024
+                };
+
+                long totalBytes = space.Length;
+
+                DateTime now = DateTime.Now;
+                pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
+
+                Console.WriteLine("Dumping " + space.Name);
+                pump.Run();
+                Console.WriteLine();
+
+                space.Dispose();
             }
         }
 
