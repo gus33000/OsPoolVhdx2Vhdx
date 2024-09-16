@@ -46,7 +46,7 @@ namespace OsPoolVhdx2Vhdx
             }
 
             PartitionTable partitionTable = virtualDisk.Partitions;
-            
+
             if (partitionTable != null)
             {
                 foreach (PartitionInfo partitionInfo in partitionTable.Partitions)
@@ -59,14 +59,14 @@ namespace OsPoolVhdx2Vhdx
 
                         Pool storageSpace = new(storageSpacePartitionStream);
 
-                        Dictionary<int, string> disks = storageSpace.GetDisks();
+                        Dictionary<long, string> disks = storageSpace.GetDisks();
 
-                        foreach (KeyValuePair<int, string> disk in disks.OrderBy(x => x.Key))
+                        foreach (KeyValuePair<long, string> disk in disks.OrderBy(x => x.Key))
                         {
                             Console.WriteLine($"- {disk.Key}: {disk.Value} StorageSpace");
                         }
-                        
-                        foreach (KeyValuePair<int, string> disk in disks)
+
+                        foreach (KeyValuePair<long, string> disk in disks)
                         {
                             using Space space = storageSpace.OpenDisk(disk.Key);
 
