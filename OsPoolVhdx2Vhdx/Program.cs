@@ -9,6 +9,8 @@ namespace OsPoolVhdx2Vhdx
     {
         private static void Main(string[] args)
         {
+            Logging.Log("\nVHDX Containing a Storage Space OS Pool To Individual Storage Space VHDx(s) tool\nVersion: 1.0.0.0\n");
+
             if (args.Length != 2)
             {
                 Logging.Log("Usage: OsPoolVhdx2Vhdx <Path to VHD(X) File with Storage Pool> <Output director for SPACEDisk.vhdx files>");
