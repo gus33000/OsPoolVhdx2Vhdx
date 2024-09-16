@@ -26,8 +26,7 @@ namespace OsPoolVhdx2Vhdx
 
             if (!Directory.Exists(OutputDirectory))
             {
-                Console.WriteLine($"Output directory does not exist: {OutputDirectory}");
-                return;
+                Directory.CreateDirectory(OutputDirectory);
             }
 
             DumpSpaces(VhdxPath, OutputDirectory);
@@ -61,12 +60,14 @@ namespace OsPoolVhdx2Vhdx
 
                         Dictionary<long, string> disks = storageSpace.GetDisks();
 
-                        foreach (KeyValuePair<long, string> disk in disks.OrderBy(x => x.Key))
+                        foreach (KeyValuePair<long, string> disk in disks.OrderBy(x => x.Key).Skip(1))
                         {
-                            Console.WriteLine($"- {disk.Key}: {disk.Value} StorageSpace");
+                            using Space space = storageSpace.OpenDisk(disk.Key);
+
+                            Console.WriteLine($"- {disk.Key}: {disk.Value} ({space.Length}B / {space.Length / 1024 / 1024}MB / {space.Length / 1024 / 1024 / 1024}GB) StorageSpace");
                         }
 
-                        foreach (KeyValuePair<long, string> disk in disks)
+                        foreach (KeyValuePair<long, string> disk in disks.OrderBy(x => x.Key).Skip(1))
                         {
                             using Space space = storageSpace.OpenDisk(disk.Key);
 
