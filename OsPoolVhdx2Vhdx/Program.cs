@@ -11,7 +11,7 @@ namespace OsPoolVhdx2Vhdx
         {
             if (args.Length != 2)
             {
-                Console.WriteLine("Usage: OsPoolVhdx2Vhdx <Path to VHD(X) File with Storage Pool> <Output director for SPACEDisk.vhdx files>");
+                Logging.Log("Usage: OsPoolVhdx2Vhdx <Path to VHD(X) File with Storage Pool> <Output director for SPACEDisk.vhdx files>");
                 return;
             }
 
@@ -20,7 +20,7 @@ namespace OsPoolVhdx2Vhdx
 
             if (!File.Exists(VhdxPath))
             {
-                Console.WriteLine($"VHD(X) file does not exist: {VhdxPath}");
+                Logging.Log($"VHD(X) file does not exist: {VhdxPath}");
                 return;
             }
 
@@ -52,7 +52,7 @@ namespace OsPoolVhdx2Vhdx
                 {
                     if (partitionInfo.GuidType == new Guid("E75CAF8F-F680-4CEE-AFA3-B001E56EFC2D"))
                     {
-                        Console.WriteLine($"{((GuidPartitionInfo)partitionInfo).Name} {((GuidPartitionInfo)partitionInfo).Identity} {((GuidPartitionInfo)partitionInfo).GuidType} {((GuidPartitionInfo)partitionInfo).SectorCount * virtualDisk.SectorSize} StoragePool");
+                        Logging.Log($"{((GuidPartitionInfo)partitionInfo).Name} {((GuidPartitionInfo)partitionInfo).Identity} {((GuidPartitionInfo)partitionInfo).GuidType} {((GuidPartitionInfo)partitionInfo).SectorCount * virtualDisk.SectorSize} StoragePool");
 
                         Stream storageSpacePartitionStream = partitionInfo.Open();
 
@@ -64,7 +64,7 @@ namespace OsPoolVhdx2Vhdx
                         {
                             using Space space = storageSpace.OpenDisk(disk.Key);
 
-                            Console.WriteLine($"- {disk.Key}: {disk.Value} ({space.Length}B / {space.Length / 1024 / 1024}MB / {space.Length / 1024 / 1024 / 1024}GB) StorageSpace");
+                            Logging.Log($"- {disk.Key}: {disk.Value} ({space.Length}B / {space.Length / 1024 / 1024}MB / {space.Length / 1024 / 1024 / 1024}GB) StorageSpace");
                         }
 
                         foreach (KeyValuePair<long, string> disk in disks.OrderBy(x => x.Key).Skip(1))
@@ -110,30 +110,24 @@ namespace OsPoolVhdx2Vhdx
                                 }
                             }
 
-                            string vhdfile = Path.Combine(outputDirectory, $"{disk.Value}.vhdx");
-                            Console.WriteLine($"Dumping {vhdfile}...");
+                            Logging.Log();
+
+                            string vhdFile = Path.Combine(outputDirectory, $"{disk.Value}.vhdx");
+                            Logging.Log($"Dumping {vhdFile}...");
 
                             long diskCapacity = space.Length;
-                            using Stream fs = new FileStream(vhdfile, FileMode.CreateNew, FileAccess.ReadWrite);
+                            using Stream fs = new FileStream(vhdFile, FileMode.CreateNew, FileAccess.ReadWrite);
                             using VirtualDisk outDisk = DiscUtils.Vhdx.Disk.InitializeDynamic(fs, Ownership.None, diskCapacity, Geometry.FromCapacity(diskCapacity, sectorSize));
 
-                            StreamPump pump = new()
+                            DateTime now = DateTime.Now;
+                            Action<ulong, ulong> progressCallback = (ulong readBytes, ulong totalBytes) =>
                             {
-                                InputStream = space,
-                                OutputStream = outDisk.Content,
-                                SparseCopy = true,
-                                SparseChunkSize = sectorSize,
-                                BufferSize = sectorSize * 1024
+                                ShowProgress(readBytes, totalBytes, now);
                             };
 
-                            long totalBytes = space.Length;
-
-                            DateTime now = DateTime.Now;
-                            pump.ProgressEvent += (o, e) => { ShowProgress((ulong)e.BytesRead, (ulong)totalBytes, now); };
-
-                            Console.WriteLine("Dumping " + disk.Value);
-                            pump.Run();
-                            Console.WriteLine();
+                            Logging.Log($"Dumping {disk.Value}");
+                            space.CopyTo(outDisk.Content, progressCallback);
+                            Logging.Log();
 
                             space.Dispose();
                         }
@@ -147,30 +141,14 @@ namespace OsPoolVhdx2Vhdx
             DateTime now = DateTime.Now;
             TimeSpan timeSoFar = now - startTime;
 
-            TimeSpan remaining =
-                TimeSpan.FromMilliseconds(timeSoFar.TotalMilliseconds / readBytes * (totalBytes - readBytes));
+            TimeSpan remaining = readBytes != 0 ?
+                TimeSpan.FromMilliseconds(timeSoFar.TotalMilliseconds / readBytes * (totalBytes - readBytes)) : TimeSpan.MaxValue;
 
             double speed = Math.Round(readBytes / 1024L / 1024L / timeSoFar.TotalSeconds);
 
-            Console.Write(
-                $"\r{GetDismLikeProgBar((int)(readBytes * 100 / totalBytes))} {speed}MB/s {remaining:hh\\:mm\\:ss\\.f}");
-        }
+            uint percentage = (uint)(readBytes * 100 / totalBytes);
 
-        private static string GetDismLikeProgBar(int percentage)
-        {
-            int eqsLength = (int)((double)percentage / 100 * 55);
-            string bases = new string('=', eqsLength) + new string(' ', 55 - eqsLength);
-            bases = bases.Insert(28, percentage + "%");
-            if (percentage == 100)
-            {
-                bases = bases[1..];
-            }
-            else if (percentage < 10)
-            {
-                bases = bases.Insert(28, " ");
-            }
-
-            return $"[{bases}]";
+            Logging.Log($"{Logging.GetDISMLikeProgressBar(percentage)} {speed}MB/s {remaining:hh\\:mm\\:ss\\.f}", returnLine: false);
         }
     }
 }
